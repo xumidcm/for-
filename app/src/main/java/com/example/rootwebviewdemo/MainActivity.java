@@ -1,6 +1,7 @@
 package com.example.rootwebviewdemo;
 
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -21,6 +22,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setJavaScriptEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setDomStorageEnabled(true);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         webView.addJavascriptInterface(new JsBridge(), "NativeBridge");
         webView.loadUrl("file:///android_asset/index.html");
