@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Root Cmd Demo</title>
+  <style>
+    body { font-family: sans-serif; margin: 16px; background: #f6f7fb; color: #222; }
+    h2 { margin-top: 0; }
+    .card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    button { background: #1565c0; color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+    pre { background: #111; color: #14ff85; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; }
+    .hint { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h2>WebView ROOT 命令 Demo</h2>
+  <div class="card">
+    <p class="hint">点击按钮调用 <code>root_cmd("whoami")</code>。</p>
+    <button onclick="runWhoami()">执行 whoami</button>
+    <pre id="result">等待执行...</pre>
+  </div>
+
+  <script>
+    function root_cmd(mycmd) {
+      const raw = NativeBridge.root_cmd(mycmd);
+      return JSON.parse(raw);
+    }
+
+    function runWhoami() {
+      const resultEl = document.getElementById('result');
+      try {
+        const [stdout, stderr, code] = root_cmd('whoami');
+        resultEl.textContent =
+          'stdout: ' + stdout + '\n' +
+          'stderr: ' + stderr + '\n' +
+          'statusCode: ' + code;
+      } catch (err) {
+        resultEl.textContent = '调用失败: ' + err;
+      }
+    }
+
+    window.addEventListener('load', runWhoami);
+  </script>
+</body>
+</html>
