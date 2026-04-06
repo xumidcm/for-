@@ -15,11 +15,26 @@ Android 8.1+（API 27）单机 WebView Demo：
 - `app/src/main/assets/index.html`
 - `.github/workflows/android-pr-build.yml`
 
-## 构建
-本仓库 CI 在 PR 上执行：
-
+## 构建命令
 ```bash
-gradle :app:assembleDebug
+gradle :app:assembleRelease
 ```
+
+## 产物位置
+本地构建成功后：
+
+```text
+app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+GitHub Actions（PR）构建成功后：
+- 在 Actions 该次运行页面最底部 **Artifacts** 下载
+- 工件名：`app-release-apk`
+
+## Android Studio 说明
+- 点击 **Run** 是“安装到设备/模拟器并启动”，不是“弹出 APK 文件”。
+- 需要 APK 文件时，请用：
+  - `Build > Build Bundle(s) / APK(s) > Build APK(s)`
+  - 完成后点击提示里的 `locate`
 
 > 说明：命令执行依赖设备 ROOT 授权；未 ROOT 设备会返回错误信息与非 0 状态码。
