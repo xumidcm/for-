@@ -33,6 +33,10 @@ public class FloatingOverlayService extends Service {
 
     private static final String CHANNEL_ID = "floating_overlay_channel";
     private static final int NOTIFICATION_ID = 1002;
+    private static final int RESIZE_LEFT = 1;
+    private static final int RESIZE_TOP = 1 << 1;
+    private static final int RESIZE_RIGHT = 1 << 2;
+    private static final int RESIZE_BOTTOM = 1 << 3;
 
     private WindowManager windowManager;
     private ImageView floatingBallView;
@@ -41,11 +45,15 @@ public class FloatingOverlayService extends Service {
     private WindowManager.LayoutParams ballParams;
     private WindowManager.LayoutParams panelParams;
     private boolean webPanelVisible;
+    private int minPanelWidth;
+    private int minPanelHeight;
 
     @Override
     public void onCreate() {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        minPanelWidth = dp(280);
+        minPanelHeight = dp(320);
         startAsForegroundService();
         createFloatingBall();
         createWebPanel();
@@ -132,6 +140,9 @@ public class FloatingOverlayService extends Service {
         webPanelView.setVisibility(View.GONE);
         webPanelView.setElevation(dp(10));
         webPanelView.setBackground(buildPanelBackground());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webPanelView.setClipToOutline(true);
+        }
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -188,6 +199,7 @@ public class FloatingOverlayService extends Service {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
+        addResizeHandles(webPanelView);
 
         panelParams = new WindowManager.LayoutParams(
                 getPanelWidth(),
@@ -270,6 +282,167 @@ public class FloatingOverlayService extends Service {
         });
     }
 
+    private void addResizeHandles(FrameLayout panelRoot) {
+        int edgeSize = dp(18);
+        int cornerSize = dp(24);
+        addResizeHandle(panelRoot, edgeSize, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.START, RESIZE_LEFT);
+        addResizeHandle(panelRoot, edgeSize, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END, RESIZE_RIGHT);
+        addResizeHandle(panelRoot, FrameLayout.LayoutParams.MATCH_PARENT, edgeSize, Gravity.TOP, RESIZE_TOP);
+        addResizeHandle(panelRoot, FrameLayout.LayoutParams.MATCH_PARENT, edgeSize, Gravity.BOTTOM, RESIZE_BOTTOM);
+        addResizeHandle(panelRoot, cornerSize, cornerSize, Gravity.TOP | Gravity.START, RESIZE_TOP | RESIZE_LEFT);
+        addResizeHandle(panelRoot, cornerSize, cornerSize, Gravity.TOP | Gravity.END, RESIZE_TOP | RESIZE_RIGHT);
+        addResizeHandle(panelRoot, cornerSize, cornerSize, Gravity.BOTTOM | Gravity.START, RESIZE_BOTTOM | RESIZE_LEFT);
+        addResizeHandle(panelRoot, cornerSize, cornerSize, Gravity.BOTTOM | Gravity.END, RESIZE_BOTTOM | RESIZE_RIGHT);
+    }
+
+    private void addResizeHandle(FrameLayout panelRoot, int width, int height, int gravity, int edges) {
+        View handle = new View(this);
+        handle.setBackgroundColor(0x00000000);
+        bindPanelResize(handle, edges);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
+        params.gravity = gravity;
+        panelRoot.addView(handle, params);
+    }
+
+    private void bindPanelResize(View resizeTarget, int resizeEdges) {
+        resizeTarget.setOnTouchListener(new View.OnTouchListener() {
+            private int initialX;
+            private int initialY;
+            private int initialWidth;
+            private int initialHeight;
+            private float initialTouchX;
+            private float initialTouchY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (panelParams == null) {
+                    return false;
+                }
+
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialX = panelParams.x;
+                        initialY = panelParams.y;
+                        initialWidth = panelParams.width;
+                        initialHeight = panelParams.height;
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        applyPanelResize(
+                                event.getRawX(),
+                                event.getRawY(),
+                                initialTouchX,
+                                initialTouchY,
+                                initialX,
+                                initialY,
+                                initialWidth,
+                                initialHeight,
+                                resizeEdges
+                        );
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
+    }
+
+    private void applyPanelResize(
+            float rawX,
+            float rawY,
+            float startTouchX,
+            float startTouchY,
+            int startX,
+            int startY,
+            int startWidth,
+            int startHeight,
+            int edges
+    ) {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int margin = dp(12);
+        int screenWidth = metrics.widthPixels;
+        int screenHeight = metrics.heightPixels;
+        int maxWidth = screenWidth - margin * 2;
+        int maxHeight = screenHeight - margin * 2;
+
+        int nextX = startX;
+        int nextY = startY;
+        int nextWidth = startWidth;
+        int nextHeight = startHeight;
+        int deltaX = Math.round(rawX - startTouchX);
+        int deltaY = Math.round(rawY - startTouchY);
+
+        if ((edges & RESIZE_LEFT) != 0) {
+            nextX = startX + deltaX;
+            nextWidth = startWidth - deltaX;
+            if (nextWidth < minPanelWidth) {
+                nextWidth = minPanelWidth;
+                nextX = startX + (startWidth - minPanelWidth);
+            }
+            if (nextX < margin) {
+                nextX = margin;
+                nextWidth = startWidth + (startX - margin);
+            }
+        }
+
+        if ((edges & RESIZE_RIGHT) != 0) {
+            nextWidth = startWidth + deltaX;
+            if (nextWidth < minPanelWidth) {
+                nextWidth = minPanelWidth;
+            }
+            if (nextX + nextWidth > screenWidth - margin) {
+                nextWidth = screenWidth - margin - nextX;
+            }
+        }
+
+        if ((edges & RESIZE_TOP) != 0) {
+            nextY = startY + deltaY;
+            nextHeight = startHeight - deltaY;
+            if (nextHeight < minPanelHeight) {
+                nextHeight = minPanelHeight;
+                nextY = startY + (startHeight - minPanelHeight);
+            }
+            if (nextY < margin) {
+                nextY = margin;
+                nextHeight = startHeight + (startY - margin);
+            }
+        }
+
+        if ((edges & RESIZE_BOTTOM) != 0) {
+            nextHeight = startHeight + deltaY;
+            if (nextHeight < minPanelHeight) {
+                nextHeight = minPanelHeight;
+            }
+            if (nextY + nextHeight > screenHeight - margin) {
+                nextHeight = screenHeight - margin - nextY;
+            }
+        }
+
+        nextWidth = Math.max(minPanelWidth, Math.min(nextWidth, maxWidth));
+        nextHeight = Math.max(minPanelHeight, Math.min(nextHeight, maxHeight));
+
+        if (nextX + nextWidth > screenWidth - margin) {
+            nextX = screenWidth - margin - nextWidth;
+        }
+        if (nextY + nextHeight > screenHeight - margin) {
+            nextY = screenHeight - margin - nextHeight;
+        }
+        nextX = Math.max(margin, nextX);
+        nextY = Math.max(margin, nextY);
+
+        panelParams.x = nextX;
+        panelParams.y = nextY;
+        panelParams.width = nextWidth;
+        panelParams.height = nextHeight;
+        if (webPanelView.getParent() != null) {
+            windowManager.updateViewLayout(webPanelView, panelParams);
+        }
+    }
+
     private void updatePanelPosition() {
         if (ballParams == null || panelParams == null) {
             return;
@@ -279,8 +452,8 @@ public class FloatingOverlayService extends Service {
         int screenWidth = metrics.widthPixels;
         int screenHeight = metrics.heightPixels;
         int margin = dp(12);
-        int panelWidth = getPanelWidth();
-        int panelHeight = getPanelHeight();
+        int panelWidth = panelParams.width;
+        int panelHeight = panelParams.height;
 
         int preferredX = ballParams.x + dp(4);
         int maxX = Math.max(margin, screenWidth - panelWidth - margin);
@@ -301,8 +474,8 @@ public class FloatingOverlayService extends Service {
     private void constrainPanelToScreen() {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         int margin = dp(12);
-        int maxX = Math.max(margin, metrics.widthPixels - getPanelWidth() - margin);
-        int maxY = Math.max(margin, metrics.heightPixels - getPanelHeight() - margin);
+        int maxX = Math.max(margin, metrics.widthPixels - panelParams.width - margin);
+        int maxY = Math.max(margin, metrics.heightPixels - panelParams.height - margin);
         panelParams.x = Math.min(Math.max(panelParams.x, margin), maxX);
         panelParams.y = Math.min(Math.max(panelParams.y, margin), maxY);
     }
