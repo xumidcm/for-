@@ -205,7 +205,8 @@ public class FloatingOverlayService extends Service {
                 getPanelWidth(),
                 getPanelHeight(),
                 getOverlayType(),
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
         );
         panelParams.gravity = Gravity.TOP | Gravity.START;
