@@ -16,9 +16,11 @@ public final class RootShellExecutor {
             return new CommandResult("", "Command is empty", -1);
         }
 
+        String normalizedCommand = stripWrappingQuotes(command.trim());
+
         Process process = null;
         try {
-            process = new ProcessBuilder("su", "-c", command).start();
+            process = new ProcessBuilder("su", "-c", normalizedCommand).start();
             String stdout = readAll(process.getInputStream());
             String stderr = readAll(process.getErrorStream());
             int statusCode = process.waitFor();
@@ -30,6 +32,18 @@ public final class RootShellExecutor {
                 process.destroy();
             }
         }
+    }
+
+    private static String stripWrappingQuotes(String command) {
+        if (command.length() < 2) {
+            return command;
+        }
+        char first = command.charAt(0);
+        char last = command.charAt(command.length() - 1);
+        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+            return command.substring(1, command.length() - 1);
+        }
+        return command;
     }
 
     private static String readAll(InputStream inputStream) throws IOException {
