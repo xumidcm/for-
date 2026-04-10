@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">点击厚入由良酱</string>
     <string name="in_app_title">Web shell</string>
+    <string name="floating_panel_title">悬浮网页</string>
+    <string name="overlay_notification_channel">悬浮网页服务</string>
+    <string name="overlay_notification_title">悬浮球已启动</string>
+    <string name="overlay_notification_text">点击悬浮球展开网页，再点悬浮球或 X 关闭</string>
 </resources>
